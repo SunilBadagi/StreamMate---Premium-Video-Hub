@@ -218,6 +218,39 @@ export default function PrivateChat() {
     }
   }, [selectedRoom]);
 
+  useEffect(() => {
+    if (selectedRoom) {
+      const subscription = supabase
+        .channel(`room_${selectedRoom.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "encrypted_messages",
+            filter: `room_id=eq.${selectedRoom.id}`,
+          },
+          (payload) => {
+            const newMessage = payload.new as Message; // Ensure TypeScript knows the expected structure
+  
+            setMessages((prevMessages) => [
+              ...prevMessages,
+              {
+                ...newMessage,
+                decrypted_content: decryptMessage(newMessage.encrypted_content), // Decrypt the message
+              } as Message, // Ensure full type compatibility
+            ]);
+          }
+        )
+        .subscribe();
+  
+      return () => {
+        supabase.removeChannel(subscription);
+      };
+    }
+  }, [selectedRoom]);
+  
+
   return (
     <div className="flex h-[calc(100vh-6rem)]">
 
